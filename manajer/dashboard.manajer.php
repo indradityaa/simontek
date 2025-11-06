@@ -7,12 +7,8 @@ if (!isset($_SESSION['username']) || $_SESSION['role'] != 'manajer') {
     exit;
 }
 
-// === Ambil Data untuk Chart Bar (Status Jadwal) ===
-$data_status = $conn->query("
-    SELECT status, COUNT(*) AS jumlah 
-    FROM jadwal 
-    GROUP BY status
-");
+// === DATA CHART STATUS ===
+$data_status = $conn->query("SELECT status, COUNT(*) AS jumlah FROM jadwal GROUP BY status");
 $status_labels = [];
 $status_values = [];
 while ($row = $data_status->fetch_assoc()) {
@@ -20,12 +16,10 @@ while ($row = $data_status->fetch_assoc()) {
     $status_values[] = $row['jumlah'];
 }
 
-// === Ambil Data untuk Chart Line (Laporan per Tanggal) ===
+// === DATA CHART LAPORAN PER HARI ===
 $data_laporan = $conn->query("
     SELECT tanggal_jadwal, COUNT(*) AS total 
-    FROM jadwal
-    GROUP BY tanggal_jadwal 
-    ORDER BY tanggal_jadwal ASC
+    FROM jadwal GROUP BY tanggal_jadwal ORDER BY tanggal_jadwal ASC
 ");
 $laporan_tanggal = [];
 $laporan_total = [];
@@ -34,14 +28,13 @@ while ($row = $data_laporan->fetch_assoc()) {
     $laporan_total[] = $row['total'];
 }
 
-// === Daftar Laporan Terbaru ===
+// === LAPORAN TERBARU ===
 $laporan_terbaru = $conn->query("
     SELECT l.*, p.nama_pelanggan, j.deskripsi_pekerjaan 
     FROM laporan l
     JOIN jadwal j ON l.id_jadwal = j.id_jadwal
     JOIN pelanggan p ON j.id_pelanggan = p.id_pelanggan
-    ORDER BY l.tanggal_laporan DESC
-    LIMIT 5
+    ORDER BY l.tanggal_laporan DESC LIMIT 5
 ");
 ?>
 <!DOCTYPE html>
@@ -52,111 +45,169 @@ $laporan_terbaru = $conn->query("
 <title>Dashboard Manajer | Sismontek</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+
 <style>
-body {
-    font-family: 'Poppins', sans-serif;
-    background-color: #f4f6f9;
-    margin: 0;
+:root {
+    --primary: #3f72af;
+    --secondary: #dbe2ef;
+    --accent: #112d4e;
+    --bg: #f9fbfd;
+    --white: #ffffff;
 }
-.sidebar {
-    background-color: #3f72af;
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
+body { background-color: var(--bg); color: #333; }
+
+/* Navbar */
+.navbar {
+    background: linear-gradient(90deg, var(--primary), var(--accent));
     color: white;
-    padding: 15px 20px;
+    padding: 15px 30px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
 }
-.sidebar h2 {
-    margin: 0;
-}
-.sidebar a {
+.navbar h1 { font-size: 20px; font-weight: 600; }
+.navbar a {
     color: white;
     text-decoration: none;
-    background-color: #d32f2f;
-    padding: 10px 15px;
-    border-radius: 6px;
+    background-color: rgba(255,255,255,0.2);
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: 0.3s;
 }
-.sidebar a:hover {
-    background-color: #b71c1c;
-}
+.navbar a:hover { background-color: rgba(255,255,255,0.4); }
+
+/* Container */
 .container {
+    padding: 25px 40px;
+    animation: fadeIn 0.6s ease-in-out;
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Header Text */
+.header-text {
+    margin-bottom: 25px;
+}
+.header-text h2 {
+    color: var(--accent);
+    font-size: 24px;
+    font-weight: 600;
+}
+.header-text p {
+    color: #666;
+    font-size: 15px;
+}
+
+/* Cards Layout */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 25px;
+}
+
+/* Card */
+.card {
+    background: var(--white);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 6px 15px rgba(0,0,0,0.08);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(63,114,175,0.2);
+}
+.card h3 {
+    color: var(--primary);
+    font-weight: 600;
+    margin-bottom: 15px;
+}
+
+/* Table */
+.table-box {
+    background: var(--white);
+    border-radius: 16px;
+    box-shadow: 0 6px 15px rgba(0,0,0,0.08);
+    margin-top: 30px;
     padding: 20px;
 }
-h1 { color: #3f72af; }
-.chart-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 20px;
-}
-.chart-box {
-    background: white;
-    padding: 15px;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    flex: 1;
-    min-width: 300px;
-}
-.table-box {
-    background: white;
-    margin-top: 20px;
-    padding: 15px;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+.table-box h3 {
+    margin-bottom: 15px;
+    color: var(--primary);
 }
 table {
     width: 100%;
     border-collapse: collapse;
+    overflow: hidden;
+    border-radius: 10px;
 }
 th, td {
-    padding: 10px;
-    border-bottom: 1px solid #ddd;
+    padding: 12px 10px;
+    text-align: center;
 }
 th {
-    background-color: #3f72af;
+    background-color: var(--primary);
     color: white;
+}
+tr:nth-child(even) { background-color: #f2f5fa; }
+
+/* Buttons */
+.buttons {
+    margin-top: 25px;
 }
 button {
     padding: 10px 15px;
     border: none;
-    border-radius: 6px;
-    background-color: #3f72af;
+    border-radius: 8px;
+    background-color: var(--primary);
     color: white;
+    font-weight: 500;
     cursor: pointer;
-    font-weight: bold;
+    margin-right: 10px;
+    transition: 0.3s;
 }
 button:hover {
-    background-color: #2b5d9c;
+    background-color: var(--accent);
 }
-@media (max-width: 768px) {
-    .chart-container { flex-direction: column; }
+@media(max-width:768px) {
+    .container { padding: 20px; }
 }
 </style>
 </head>
 <body>
 
-<div class="sidebar">
-    <h2>📈 Dashboard Manajer</h2>
+<!-- NAVBAR -->
+<div class="navbar">
+    <h1>📊 Dashboard Manajer</h1>
     <a href="../auth/logout.php">Logout</a>
 </div>
 
+<!-- CONTENT -->
 <div class="container">
-    <h1>Selamat Datang, <?= htmlspecialchars($_SESSION['nama']); ?>!</h1>
+    <div class="header-text">
+        <h2>Selamat Datang, <?= htmlspecialchars($_SESSION['nama']); ?> 👋</h2>
+        <p>Berikut rangkuman performa tim teknisi minggu ini.</p>
+    </div>
 
-    <div class="chart-container">
-        <!-- Diagram Batang Status Jadwal -->
-        <div class="chart-box">
-            <h3>📊 Status Jadwal</h3>
+    <!-- CHARTS -->
+    <div class="dashboard-grid">
+        <div class="card">
+            <h3>📊 Status Jadwal Teknisi</h3>
             <canvas id="chartStatus"></canvas>
         </div>
 
-        <!-- Diagram Garis Jumlah Laporan -->
-        <div class="chart-box">
+        <div class="card">
             <h3>📈 Jumlah Kerusakan per Tanggal</h3>
             <canvas id="chartLaporan"></canvas>
         </div>
     </div>
 
-    <!-- Daftar Laporan Terbaru -->
+    <!-- TABEL LAPORAN TERBARU -->
     <div class="table-box">
         <h3>🧾 Laporan Terbaru</h3>
         <table>
@@ -172,7 +223,7 @@ button:hover {
                 $no = 1;
                 while ($row = $laporan_terbaru->fetch_assoc()) {
                     echo "<tr>
-                        <td>$no</td>
+                        <td>{$no}</td>
                         <td>{$row['nama_pelanggan']}</td>
                         <td>{$row['deskripsi_pekerjaan']}</td>
                         <td>{$row['kendala']}</td>
@@ -181,7 +232,7 @@ button:hover {
                     $no++;
                 }
             } else {
-                echo "<tr><td colspan='5'>Belum ada laporan.</td></tr>";
+                echo "<tr><td colspan='5'>Belum ada laporan terbaru.</td></tr>";
             }
             ?>
         </table>
@@ -189,19 +240,17 @@ button:hover {
 
     <!-- Tombol Cetak -->
     <div style="margin-top:20px;">
-        <form method="GET" action="cetak_laporan.php" style="display:inline;">
-            <input type="hidden" name="periode" value="minggu">
-            <button type="submit">🗓 Cetak Laporan Mingguan</button>
-        </form>
-        <form method="GET" action="cetak_laporan.php" style="display:inline; margin-left:10px;">
-            <input type="hidden" name="periode" value="bulan">
-            <button type="submit">📅 Cetak Laporan Bulanan</button>
-        </form>
+        <button onclick="cetakLaporan('minggu')">🗓 Cetak Laporan Mingguan</button>
+        <button onclick="cetakLaporan('bulan')">📅 Cetak Laporan Bulanan</button>
     </div>
+
+    <!-- Iframe tersembunyi -->
+    <iframe id="printFrame" style="display:none;"></iframe>
+
 </div>
 
+<!-- CHART JS -->
 <script>
-// === Chart Batang Status Jadwal ===
 new Chart(document.getElementById('chartStatus'), {
     type: 'bar',
     data: {
@@ -209,27 +258,54 @@ new Chart(document.getElementById('chartStatus'), {
         datasets: [{
             label: 'Jumlah Jadwal',
             data: <?= json_encode($status_values); ?>,
-            backgroundColor: ['#f9a825','#29b6f6','#66bb6a']
+            backgroundColor: ['#3f72af', '#f9a825', '#66bb6a'],
+            borderRadius: 6
         }]
     },
-    options: { responsive: true, plugins: { legend: { display: false } } }
+    options: {
+        responsive: true,
+        scales: {
+            y: { beginAtZero: true, title: { display: true, text: 'Jumlah' } }
+        },
+        plugins: { legend: { display: false } }
+    }
 });
 
-// === Chart Garis Laporan ===
 new Chart(document.getElementById('chartLaporan'), {
     type: 'line',
     data: {
         labels: <?= json_encode($laporan_tanggal); ?>,
         datasets: [{
-            label: 'Jumlah Laporan',
+            label: 'Jumlah Kerusakan',
             data: <?= json_encode($laporan_total); ?>,
             borderColor: '#3f72af',
-            fill: false,
-            tension: 0.3
+            backgroundColor: 'rgba(63,114,175,0.2)',
+            fill: true,
+            tension: 0.3,
+            pointStyle: 'circle',
+            pointRadius: 5,
+            pointHoverRadius: 7
         }]
     },
-    options: { responsive: true }
+    options: {
+        responsive: true,
+        interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { position: 'bottom' } },
+        scales: {
+            y: { beginAtZero: true, title: { display: true, text: 'Jumlah Kerusakan' } },
+            x: { title: { display: true, text: 'Tanggal' } }
+        }
+    }
 });
+function cetakLaporan(periode) {
+    const iframe = document.getElementById('printFrame');
+    iframe.src = 'cetak_laporan.php?periode=' + periode;
+
+    iframe.onload = () => {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+    };
+}
 </script>
 
 </body>
